@@ -48,7 +48,8 @@ def open_chromedriver(profile = None
     # Profile
     if profile == 'incognito': options.add_argument("--incognito") ## chrome incognito mode
     elif type(profile) == int:
-        options.add_argument(f"user-data-dir=/Users/matias/Library/Application Support/Google/Chrome/Profile {profile}") #Path to your chrome profile
+        options.add_argument('user-data-dir=chrome')
+        options.add_argument(f'--profile-directory=Profile {profile}')
 
     # Extensions
     if 'veepn' in extensions:
@@ -56,9 +57,12 @@ def open_chromedriver(profile = None
         options.add_extension('chrome/extension_vpn.crx')
 
     
-    s = Service(ChromeDriverManager().install())
+    #s = Service(ChromeDriverManager().install())
 
-    driver = Driver(service = s, options = options)
+    #driver = Driver(service = s, options = options)
+
+    executable_path="chromedriver"
+    driver = Driver(executable_path = executable_path, options = options)
     
     sleep(10)
 
@@ -301,7 +305,7 @@ class Driver(webdriver.Chrome):
 
                 sleep(0.6)
 
-    def wait_for_page_load(url,checks,seconds_per_check):
+    def wait_for_page_load(self,url,checks,seconds_per_check):
 
         # url can be a string of 1 url, or a list of urls strings
 
