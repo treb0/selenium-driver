@@ -205,10 +205,17 @@ class Driver(webdriver.Chrome):
                 sleep(1)
                 
             
-    def verify_ip(self):
+    def verify_ip(self,country = ''):
         
-        print('')
-        
+        if country == '':
+            print('Country not specified. System exit')
+            sys.exit()
+
+        elif country not in ['United States']:
+            print('Un-recognized country. Add before runnig this funciton. System exit')
+            sys.exit()
+            
+
         while True:
             
             try:
@@ -235,51 +242,44 @@ class Driver(webdriver.Chrome):
 
                 current_ip = soup.find("span", {"class": "address"}, {'id':'ipv4'}).get_text()
 
+                current_country = soup.find('span',text='Country:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+                current_region = soup.find('span',text='Region:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+                current_city = soup.find('span',text='City:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+
+                print('')
                 print(f'IP: {current_ip}')
+                print(f'country: {current_country}')
+                print(f'region: {current_region}')
+                print(f'city: {current_city}')
 
                 # IP validation
-                if current_ip.split('.')[0] == '141':
+                if current_country == country:
                     
-                    print('Success: New Jersey IP detected')
-                    
-                    switch_result = self.switch_to_tab('fb')
-                    
-                    if switch_result == 'error': self.switch_to.window(self.window_handles[0])
-                        
-                    return True
-                
-                elif current_ip.split('.')[0] == '51':
-                    
-                    print('Success: Oregon detected')
+                    print('')
+                    print(f'Success: {current_country} IP detected')
                     
                     switch_result = self.switch_to_tab('fb')
                     
                     if switch_result == 'error': self.switch_to.window(self.window_handles[0])
                         
                     return True
-                
-                elif current_ip.split('.')[0] in ('135','147'):
-                    
-                    print('Success: Virginia detected')
-                    
-                    switch_result = self.switch_to_tab('fb')
-                    
-                    if switch_result == 'error': self.switch_to.window(self.window_handles[0])
-                        
-                    return True
-                
+
                 else:
-                    val = input("Put New Jersey IP")
+                    val = input(f"Set VPN to country: {country}. Or enter 'exit' to exit")
                     
-                    if val == 'error': sys.exit('induced error')
-                    
+                    if val == 'exit': sys.exit('user exit')
+                
             except:
                 
                 pass
 
+
+
     def scroll(self):
 
         self.execute_script("window.scrollTo(0,9999999);")
+
+        sleep(3)
 
     def send_keys_delete_clear_textbox(element,text_detection):
 
@@ -326,66 +326,6 @@ class Driver(webdriver.Chrome):
 
             if load_final_try > checks: sys.exit(f'waiting for delivery web-page but not found. urls_check: {urls_check}')
 
-
-    def verify_ip(self,VPN_COUNTRY = 'United States'):
-    
-        print('')
-        
-        while True:
-            
-            try:
-
-                my_ip_link = 'https://whatismyipaddress.com/'
-
-                # la pagina neceista cargar e incluso me frena cloudflare, por lo que habrá que tener el tab abierto
-
-                tab_action = switch_to_tab('ip')
-
-                if tab_action == 'error':
-
-                    driver.execute_script(f"""window.open('{my_ip_link}')""")
-
-                else:
-
-                    driver.refresh()
-
-                time.sleep(2)
-
-                # scrape IP
-
-                soup = get_soup()
-
-                current_ip = soup.find("span", {"class": "address"}, {'id':'ipv4'}).get_text()
-
-                country = soup.find('span',text='Country:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
-                region = soup.find('span',text='Region:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
-                city = soup.find('span',text='City:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
-
-                print(f'IP: {current_ip}')
-                print(f'country: {country}')
-                print(f'region: {region}')
-                print(f'city: {city}')
-
-
-                # IP validation
-                if country == VPN_COUNTRY:
-                    
-                    print(f'Success: *{VPN_COUNTRY}* IP detected')
-                    
-                    switch_result = self.switch_to_tab(self,'fb')
-                    
-                    if switch_result == 'error': driver.switch_to.window(driver.window_handles[0])
-                        
-                    return True
-
-                else:
-                    val = input("Put New Jersey IP")
-                    
-                    if val == 'error': sys.exit('induced error')
-                    
-            except:
-                
-                pass
 
 
 
