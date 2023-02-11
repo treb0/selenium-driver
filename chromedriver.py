@@ -28,6 +28,7 @@ from os.path import isfile, join
 def open_chromedriver(profile = None
                      ,extensions = []
                      ,audio = False
+                     ,headless = False
                      ):
 
     options = webdriver.ChromeOptions()
@@ -44,6 +45,10 @@ def open_chromedriver(profile = None
     options.add_argument("--window-size=1282,814")
     options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
     
+    # Headless
+    if headless: 
+        options.add_argument("--headless")
+        options.add_argument('--disable-gpu')
 
     # Profile
     if profile == 'incognito': options.add_argument("--incognito") ## chrome incognito mode
@@ -205,7 +210,7 @@ class Driver(webdriver.Chrome):
                 sleep(1)
                 
             
-    def verify_ip(self,country = ''):
+    def verify_ip(self,country = '',region = ''):
         
         if country == '':
             print('Country not specified. System exit')
@@ -253,10 +258,12 @@ class Driver(webdriver.Chrome):
                 print(f'city: {current_city}')
 
                 # IP validation
-                if current_country == country:
+                if (current_country == country) & (region in ['',current_region]):
                     
                     print('')
-                    print(f'Success: {current_country} IP detected')
+
+                    if region != '': print(f'Success: {current_country}, {region} IP detected')
+                    else: print(f'Success: {current_country} IP detected')
                     
                     switch_result = self.switch_to_tab('fb')
                     
@@ -265,7 +272,8 @@ class Driver(webdriver.Chrome):
                     return True
 
                 else:
-                    val = input(f"Set VPN to country: {country}. Or enter 'exit' to exit")
+                    if region != '': val = input(f"Set VPN to country: {country}, and region: {region}. Or enter 'exit' to exit")
+                    else: val = input(f"Set VPN to country: {country}. Or enter 'exit' to exit")
                     
                     if val == 'exit': sys.exit('user exit')
                 
@@ -281,7 +289,7 @@ class Driver(webdriver.Chrome):
 
         sleep(3)
 
-    def send_keys_delete_clear_textbox(element,text_detection):
+    def send_keys_delete_clear_textbox(self,element,text_detection):
 
         element.click()
 
