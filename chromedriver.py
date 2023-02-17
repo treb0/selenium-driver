@@ -86,12 +86,24 @@ def open_chromedriver(profile = None
             except:
                 break
 
+    # go to first tab
+    driver.switch_to.window(driver.window_handles[0])
+
     return driver
 
 
 
 class Driver(webdriver.Chrome):
         
+    def open_new_tab(self,url=''):
+
+        # open new tab
+        self.execute_script(f"""window.open('')""")
+
+        sleep(2)
+
+        # focus on new tab
+        self.switch_to.window(self.window_handles[len(self.window_handles)-1])
 
 
     def switch_to_tab(self,go_to_this_tab):
@@ -120,7 +132,7 @@ class Driver(webdriver.Chrome):
             
             elif 'https://whatismyipaddress.com/' in url: name = 'ip'
             
-            elif 'https://veepn.com/' in url: name = 'veepn'
+            elif 'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno' in url: name = 'veepn'
             
             #elif 'https://speech-to-text-demo' in url: name = 'speech2text'
             
@@ -297,21 +309,22 @@ class Driver(webdriver.Chrome):
 
         while True:
 
-            if text_detection == 'text':
+            if text_detection == 'text': current_text_in_element = element.text
 
-                current_text_in_element = element.text
+            else: current_text_in_element = element.get_attribute(text_detection)
 
-            else:
-
-                current_text_in_element = element.get_attribute(text_detection)
 
             if current_text_in_element == '': return True
 
             else:
 
+                # evitar que se quede dandole backspace, cuando el cursor está por delante de todo el texto, por lo que no borra nada
+                element.send_keys(Keys.ARROW_RIGHT)
+
                 element.send_keys(Keys.BACKSPACE)
 
                 sleep(0.6)
+
 
     def wait_for_page_load(self,url,checks,seconds_per_check):
 
