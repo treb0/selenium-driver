@@ -89,24 +89,47 @@ def open_chromedriver(profile = None
     # go to first tab
     driver.switch_to.window(driver.window_handles[0])
 
+    # set extensions properties
+    driver.extensions = extensions
+
+
     return driver
 
 
 
 class Driver(webdriver.Chrome):
+
+    def scroll_to_element(self, element):
+        
+        actions = ActionChains(self)
+        
+        actions.move_to_element(element).perform()
+
+        sleep(2)
+
+        ################################################################################################################################################
+
         
     def open_new_tab(self,url=''):
 
         # open new tab
-        self.execute_script(f"""window.open('')""")
+        self.execute_script("""window.open('')""")
 
         sleep(2)
 
         # focus on new tab
         self.switch_to.window(self.window_handles[len(self.window_handles)-1])
 
+        sleep(0.5)
 
-    def switch_to_tab(self,go_to_this_tab):
+        # open link
+        self.open_link(url)
+        sleep(2)
+
+        ################################################################################################################################################
+
+
+    def switch_to_tab(self,go_to_this_tab,refresh=False):
     
         go_to_this_tab = str(go_to_this_tab.lower())
         
@@ -120,42 +143,54 @@ class Driver(webdriver.Chrome):
         
         # Read url and set name to each tab
         
-        i = 0
+        link_dict = {
+            'fb':'https://www.facebook.com',
+            'ip':'https://whatismyipaddress.com',
+            'veepn':'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/html/foreground.html'
+            }
         
         for i,handle in enumerate(window_handles):
 
             self.switch_to.window(handle)
             
             url = self.current_url
-            
-            if 'https://www.facebook.com' in url: name = 'fb'
-            
-            elif 'https://whatismyipaddress.com/' in url: name = 'ip'
-            
-            elif 'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno' in url: name = 'veepn'
-            
-            #elif 'https://speech-to-text-demo' in url: name = 'speech2text'
-            
-            else: name = 'undetected'
+
+            name = 'undetected'  # default name of tab
+
+            for link_name in link_dict:
+
+                if link_dict[link_name] in url: 
+                    name = link_name
+                    break
         
             tabs.loc[len(tabs)] = [name,url,handle]
             
+        # is there a tab with this url?
+        if go_to_this_tab not in tabs['name'].tolist():
+
+            # there is no tab with this url
+            url = link_dict[go_to_this_tab]
+
+            # create new tab with this url and focus on it
+            self.open_new_tab(url)
+
+            sleep(2)
+            return f'new tab opened: {go_to_this_tab}'
         
-        # get index of desired tab
-            
-        try:
+        else:
+            # there is a tab with this url
             go_index = tabs.index[tabs['name'] == go_to_this_tab].tolist()[0]
-        except:
-            return 'error'
+
+            # select tab
+            self.switch_to.window(tabs['handle'][go_index])
+
+            # refresh page?
+            if refresh: self.refresh()
+
+            return f'switched to tab: {go_to_this_tab}'
         
 
-        # select tab
-        
-        self.switch_to.window(tabs['handle'][go_index])
-
-        
-        return f'tab opened: {go_to_this_tab}'
-        
+        ################################################################################################################################################
 
     def open_link(self
                  ,link_str
@@ -204,6 +239,9 @@ class Driver(webdriver.Chrome):
             except:
                 pass
 
+        ################################################################################################################################################
+
+
     def get_soup(self,time_seconds=5):
     
         soup = ''
@@ -220,12 +258,76 @@ class Driver(webdriver.Chrome):
             except:
                 soup_try += 1
                 sleep(1)
-                
+
+        ################################################################################################################################################
+
+
+    def set_veepn(self,country,region):
+
+        if 'veepn' not in self.extensions: return 'VeePN not in driver extensions'
+
+        self.switch_to_tab('veepn')
+
+        sleep(10)
+
+        # set the correct country and region
+        while True:
+
+            soup = self.get_soup()
+
+            veepn_country = soup.find('div',{'class':'area-name'}).get_text().rstrip(' ').lstrip(' ')
+            veepn_region = soup.find('div',{'class':'name'}).get_text().rstrip(' ').lstrip(' ')
+
+            if (veepn_country == country) and (veepn_region == region): break
+
+            else:
+                self.find_element(By.XPATH, "//div[@class='region-wrapper']").click()
+
+                sleep(2)
+
+                ### click country
+                try:
+                    # first try to click country+region
+                    self.find_element(By.XPATH, f"//div[@role='button']//span[@class='region-area'][contains(text(),'{country}')]/..//span[@class='region-city-name'][text()='{region}']").click()
+                except:
+                    # if not, we have to first click the country
+                    self.find_element(By.XPATH, f"//div[@role='button']//div[@class='region-name-wrapper'][contains(text(),'{country}')]").click()
+                    # and then the region
+                    region_element = self.find_element(By.XPATH, f"//div[@role='button']//span[text()='{region}']")
+                    self.scroll_to_element(region_element)
+                    region_element.click()
+
+                sleep(5)
+
+        
+        # turn on vpn
+        while True:
+
+            # check if connected
+            soup = self.get_soup()
+            status = soup.find('div',{'id':'mainBtn'})['class'][0]
+
+            if status == 'connected': return True
+
+            elif status == 'disconnected': 
+                # click super button
+                self.find_element(By.XPATH, f"//span[@class='button-clicker']").click()
+
+            else:
+                # se pone con status preConnected mientras esta connectado
+                sleep(5)
+
+        ################################################################################################################################################
+    
             
-    def verify_ip(self,country = '',region = ''):
+    def verify_ip(self,country,region,veepn_country = '',veepn_region = ''):
         
         if country == '':
             print('Country not specified. System exit')
+            sys.exit()
+        
+        elif region == '':
+            print('Region not specified. System exit')
             sys.exit()
 
         elif country not in ['United States']:
@@ -233,73 +335,64 @@ class Driver(webdriver.Chrome):
             sys.exit()
             
 
-        while True:
-            
-            try:
+        while True:  
 
-                my_ip_link = 'https://whatismyipaddress.com/'
+            # open web page or create new tab
 
-                # la pagina neceista cargar e incluso me frena cloudflare, por lo que habrá que tener el tab abierto
+            self.switch_to_tab('ip',refresh=True) 
 
-                tab_action = self.switch_to_tab('ip')
+            sleep(4)
 
-                if tab_action == 'error':
+            # scrape IP
 
-                    self.execute_script(f"""window.open('{my_ip_link}')""")
+            soup = self.get_soup()
 
-                else:
+            current_ip = soup.find("span", {"class": "address"}, {'id':'ipv4'}).get_text()
 
-                    self.refresh()
+            current_country = soup.find('span',text='Country:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+            current_region = soup.find('span',text='Region:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+            current_city = soup.find('span',text='City:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
 
-                sleep(2)
+            print('')
+            print(f'IP: {current_ip}')
+            print(f'country: {current_country}')
+            print(f'region: {current_region}')
+            print(f'city: {current_city}')
 
-                # scrape IP
-
-                soup = self.get_soup()
-
-                current_ip = soup.find("span", {"class": "address"}, {'id':'ipv4'}).get_text()
-
-                current_country = soup.find('span',text='Country:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
-                current_region = soup.find('span',text='Region:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
-                current_city = soup.find('span',text='City:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
-
+            # IP validation
+            if (current_country == country) & (region == current_region):
+                
                 print('')
-                print(f'IP: {current_ip}')
-                print(f'country: {current_country}')
-                print(f'region: {current_region}')
-                print(f'city: {current_city}')
+                print(f'Success: {current_country}, {region} IP detected')
+                    
+                return True
 
-                # IP validation
-                if (current_country == country) & (region in ['',current_region]):
-                    
-                    print('')
-
-                    if region != '': print(f'Success: {current_country}, {region} IP detected')
-                    else: print(f'Success: {current_country} IP detected')
-                    
-                    switch_result = self.switch_to_tab('fb')
-                    
-                    if switch_result == 'error': self.switch_to.window(self.window_handles[0])
-                        
-                    return True
-
-                else:
-                    if region != '': val = input(f"Set VPN to country: {country}, and region: {region}. Or enter 'exit' to exit")
-                    else: val = input(f"Set VPN to country: {country}. Or enter 'exit' to exit")
-                    
+            else:
+                if 'veepn' in self.extensions: self.set_veepn(veepn_country,veepn_region)
+                else: 
+                    val = input(f"Set VPN to country: {country}, and region: {region}. Or enter 'exit' to exit")
                     if val == 'exit': sys.exit('user exit')
-                
-            except:
-                
-                pass
+
+        ################################################################################################################################################
 
 
+    def scroll(self,depth=9999999):
 
-    def scroll(self):
-
-        self.execute_script("window.scrollTo(0,9999999);")
+        self.execute_script(f"window.scrollTo(0,{depth});")
 
         sleep(3)
+
+        ################################################################################################################################################
+
+
+    def scroll_by(self,depth=200):
+
+        self.execute_script(f"window.scrollBy(0,{depth});")
+
+        sleep(3)
+
+        ################################################################################################################################################
+
 
     def send_keys_delete_clear_textbox(self,element,text_detection):
 
@@ -324,6 +417,8 @@ class Driver(webdriver.Chrome):
                 element.send_keys(Keys.BACKSPACE)
 
                 sleep(0.6)
+
+        ################################################################################################################################################
 
 
     def wait_for_page_load(self,url,checks,seconds_per_check):
