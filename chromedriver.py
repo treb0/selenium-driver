@@ -25,7 +25,9 @@ from os import listdir
 from os.path import isfile, join
 
 
-def open_chromedriver(profile = None
+def open_chromedriver(rel_path_to_selenium
+                     ,rel_path_to_chrome
+                     ,profile = None
                      ,extensions = []
                      ,audio = False
                      ,headless = False
@@ -53,20 +55,21 @@ def open_chromedriver(profile = None
     # Profile
     if profile == 'incognito': options.add_argument("--incognito") ## chrome incognito mode
     elif type(profile) == int:
-        options.add_argument('user-data-dir=chrome')
+        options.add_argument(f'user-data-dir={rel_path_to_chrome}')
         options.add_argument(f'--profile-directory=Profile {profile}')
 
     # Extensions
     if 'veepn' in extensions:
         # add vpn extension
-        options.add_extension('chrome/extension_vpn.crx')
+        options.add_extension(f'{rel_path_to_selenium}/extension_vpn.crx')
 
     
     #s = Service(ChromeDriverManager().install())
 
     #driver = Driver(service = s, options = options)
 
-    executable_path="chromedriver"
+    #executable_path = rel_path_to_selenium + "chromedriver"
+    executable_path = "chromedriver"
     driver = Driver(executable_path = executable_path, options = options)
     
     sleep(10)
@@ -99,6 +102,28 @@ def open_chromedriver(profile = None
 
 class Driver(webdriver.Chrome):
 
+    def send_action_keys(self, keys):
+
+        actions = ActionChains(self)
+
+        keys_dict = {
+            'esc': Keys.ESCAPE,
+            'enter': Keys.ENTER,
+            'up': Keys.UP,
+            'down': Keys.DOWN,
+            'tab': Keys.TAB,
+            'backspace': Keys.BACKSPACE,
+            'delete': Keys.DELETE
+        }
+
+        if type(keys) == str: keys = [keys]
+        for key in keys:
+            if key not in keys_dict.keys(): sys.exit(f'Invalid key: {key}')
+            else:
+                actions.send_keys(keys_dict[key]).perform()
+                sleep(1)
+                
+
     def scroll_to_element(self, element):
         
         actions = ActionChains(self)
@@ -123,7 +148,7 @@ class Driver(webdriver.Chrome):
         sleep(0.5)
 
         # open link
-        self.open_link(url)
+        self.open_link(url,mode = 'in')
         sleep(2)
 
         ################################################################################################################################################
@@ -146,7 +171,9 @@ class Driver(webdriver.Chrome):
         link_dict = {
             'fb':'https://www.facebook.com',
             'ip':'https://whatismyipaddress.com',
-            'veepn':'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/html/foreground.html'
+            'veepn':'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/html/foreground.html',
+            'landing':'https://www.hellolanding.com',
+            'clutch':'https://www.clutch.ca'
             }
         
         for i,handle in enumerate(window_handles):
@@ -195,6 +222,7 @@ class Driver(webdriver.Chrome):
     def open_link(self
                  ,link_str
                  ,mode = 'equal'
+                 ,force_refresh = False
                  ):
     
         # mode = equal: function will iterate until it opens that exact same link
@@ -207,6 +235,11 @@ class Driver(webdriver.Chrome):
         link_str = link_str.rstrip('/')
         
         sleep(2)
+
+        driver_opened_new_page = False
+
+        if force_refresh: self.get(link_str)
+        sleep(5)
         
         while True:
             
@@ -221,18 +254,29 @@ class Driver(webdriver.Chrome):
                 if current_url_strict.find('?') > -1: current_url = current_url_strict[:current_url_strict.find('?')]
                 else: current_url = current_url_strict
             
-                if (mode == 'equal') & (link_str == current_url): return None
+                if mode == 'equal':
+                    
+                    if link_str == current_url: return True
+
+                    elif (link_str in current_url) & driver_opened_new_page: 
+                        # driver abrió una nueva pagina y la pagina te manda ya con utms o algo mas... qe se le va a hacer
+                        # en definitiva se abrió correctamente la pagina
+                        return True
             
-                elif (mode == 'in') & (link_str in current_url): return None
+                elif (mode == 'in') & (link_str in current_url): return True
             
                     
-                elif open_link_try > 5:
+                # page is not correct
+
+                if open_link_try > 5:
                     
                     sys.exit(f'Error: open_link() has failed {open_link_try} times. System exit')
 
                 else:
 
                     self.get(link_str)
+
+                    driver_opened_new_page = True
 
                     sleep(5)
                     
@@ -269,6 +313,26 @@ class Driver(webdriver.Chrome):
         self.switch_to_tab('veepn')
 
         sleep(10)
+
+        # Check if we are logged into veepn
+        # open menu sidebar
+        self.find_element(By.XPATH, '//button[@id="hamburger"]').click()
+        sleep(2)
+        soup = self.get_soup()
+        log_ins = len(soup.find_all('button',text='Log In'))
+        my_accounts = len(soup.find_all('div',text='My account'))
+        if (log_ins == 1) & (my_accounts == 0):
+            print('WARNING: Not logged in to veepn')
+            logged_in = False
+        elif (my_accounts == 1) & (log_ins == 0):
+            print('Logged into veepn')
+            logged_in = True
+        else:
+            print(f'Unexpected occurrances of log_ins ({log_ins}) and/or my_accounts ({my_accounts})')
+            logged_in = 'Unexpected'
+        # close menu sidebar
+        self.find_element(By.XPATH, '//div[@role="button"][@class="bg"]').click()
+        sleep(2)
 
         # set the correct country and region
         while True:
@@ -307,7 +371,7 @@ class Driver(webdriver.Chrome):
             soup = self.get_soup()
             status = soup.find('div',{'id':'mainBtn'})['class'][0]
 
-            if status == 'connected': return True
+            if status == 'connected': return logged_in
 
             elif status == 'disconnected': 
                 # click super button
