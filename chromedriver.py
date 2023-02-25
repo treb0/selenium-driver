@@ -102,27 +102,17 @@ def open_chromedriver(rel_path_to_selenium
 
 class Driver(webdriver.Chrome):
 
-    def send_action_keys(self, keys):
+    def send_action_keys(self, keys, pause_s=1):
 
         actions = ActionChains(self)
 
-        keys_dict = {
-            'esc': Keys.ESCAPE,
-            'enter': Keys.ENTER,
-            'up': Keys.UP,
-            'down': Keys.DOWN,
-            'tab': Keys.TAB,
-            'backspace': Keys.BACKSPACE,
-            'delete': Keys.DELETE
-        }
-
         if type(keys) == str: keys = [keys]
+        
         for key in keys:
-            if key not in keys_dict.keys(): sys.exit(f'Invalid key: {key}')
-            else:
-                actions.send_keys(keys_dict[key]).perform()
-                sleep(1)
-                
+            actions.send_keys(key).perform()
+            sleep(pause_s)
+
+        ################################################################################################################################################
 
     def scroll_to_element(self, element):
         
@@ -394,7 +384,7 @@ class Driver(webdriver.Chrome):
             print('Region not specified. System exit')
             sys.exit()
 
-        elif country not in ['United States']:
+        elif country not in ['United States','Canada']:
             print('Un-recognized country. Add before runnig this funciton. System exit')
             sys.exit()
             
