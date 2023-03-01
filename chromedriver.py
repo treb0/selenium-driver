@@ -163,8 +163,13 @@ class Driver(webdriver.Chrome):
             'ip':'https://whatismyipaddress.com',
             'veepn':'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/html/foreground.html',
             'landing':'https://www.hellolanding.com',
-            'clutch':'https://www.clutch.ca'
+            'clutch':'https://www.clutch.ca',
+            'rent_seeker':'https://www.rentseeker.ca/'
             }
+        
+        # review if we already are in the tab and there is no need to review tabs
+        if link_dict[go_to_this_tab] in self.current_url: return True
+        
         
         for i,handle in enumerate(window_handles):
 
@@ -212,6 +217,7 @@ class Driver(webdriver.Chrome):
     def open_link(self
                  ,link_str
                  ,mode = 'equal'
+                 ,retry = True
                  ,force_refresh = False
                  ):
     
@@ -233,32 +239,33 @@ class Driver(webdriver.Chrome):
         
         while True:
             
-            try:
-                
-                open_link_try += 1
-                
-                current_url_raw = self.current_url
-                
-                current_url_strict = current_url_raw.rstrip('/')
-                
-                if current_url_strict.find('?') > -1: current_url = current_url_strict[:current_url_strict.find('?')]
-                else: current_url = current_url_strict
+            open_link_try += 1
             
-                if mode == 'equal':
-                    
-                    if link_str == current_url: return True
+            current_url_raw = self.current_url
+            
+            current_url_strict = current_url_raw.rstrip('/')
+            
+            if current_url_strict.find('?') > -1: current_url = current_url_strict[:current_url_strict.find('?')]
+            else: current_url = current_url_strict
+        
+            if mode == 'equal':
+                
+                if link_str == current_url: return True
 
-                    elif (link_str in current_url) & driver_opened_new_page: 
-                        # driver abrió una nueva pagina y la pagina te manda ya con utms o algo mas... qe se le va a hacer
-                        # en definitiva se abrió correctamente la pagina
-                        return True
+                elif (link_str in current_url) & driver_opened_new_page: 
+                    # driver abrió una nueva pagina y la pagina te manda ya con utms o algo mas... qe se le va a hacer
+                    # en definitiva se abrió correctamente la pagina
+                    return True
+        
+            elif (mode == 'in') & (link_str in current_url): return True
+        
+
+            if not retry: return False
             
-                elif (mode == 'in') & (link_str in current_url): return True
-            
-                    
+            else:
                 # page is not correct
 
-                if open_link_try > 5:
+                if open_link_try >= 3:
                     
                     sys.exit(f'Error: open_link() has failed {open_link_try} times. System exit')
 
@@ -269,10 +276,7 @@ class Driver(webdriver.Chrome):
                     driver_opened_new_page = True
 
                     sleep(5)
-                    
-            except:
-                pass
-
+                  
         ################################################################################################################################################
 
 
