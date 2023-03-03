@@ -500,6 +500,41 @@ class Driver(webdriver.Chrome):
 
             if load_final_try > checks: sys.exit(f'waiting for delivery web-page but not found. urls_check: {urls_check}')
 
+    ################################################################################################################################################
+
+    def multiple_elements_by_xpath(self
+                                  ,xpath_list
+                                  ,move_to = False
+                                  ,click = False
+                                  ,wait_s_after_move = 1
+                                  ,wait_s_after_click=1
+                                  ,exit_if_failure = True
+                                  ):
+        
+        # detect and/or move to and/or click the first element possible
+
+        for xpath in xpath_list:
+
+            elements = self.find_elements(By.XPATH, xpath)
+
+            if len(elements) > 0:
+
+                element = elements[0]
+
+                if move_to:
+                    self.scroll_to_element(element)
+                    sleep(wait_s_after_move)
+
+                if click:
+                    element.click()
+                    sleep(wait_s_after_click)
+
+                return xpath
+            
+        if exit_if_failure: sys.exit(f'no elements found. xpaths = {xpath_list}')
+        else:
+            return False
+
 
 
 
