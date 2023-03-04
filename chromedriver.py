@@ -143,6 +143,16 @@ class Driver(webdriver.Chrome):
 
         ################################################################################################################################################
 
+    def close_current_tab(self):
+
+        self.close()
+
+        # go to first tab, so that driver is not stuck in closed tab
+        self.switch_to.window(self.window_handles[0])
+
+        return True
+
+        ################################################################################################################################################
 
     def switch_to_tab(self,go_to_this_tab,refresh=False):
     
