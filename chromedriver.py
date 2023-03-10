@@ -5,6 +5,8 @@ import pandas as pd
 
 from bs4 import BeautifulSoup
 
+import random
+
 # Selenium
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait, Select
@@ -106,10 +108,12 @@ class Driver(webdriver.Chrome):
 
         actions = ActionChains(self)
 
-        if type(keys) == str: keys = [keys]
+        if type(keys) != list: keys = [keys]
         
         for key in keys:
-            actions.send_keys(key).perform()
+            if type(key) in [int, float]: key_final = str(key)
+            else: key_final = key
+            actions.send_keys(key_final).perform()
             sleep(pause_s)
 
         ################################################################################################################################################
@@ -178,6 +182,13 @@ class Driver(webdriver.Chrome):
             }
         
         # review if we already are in the tab and there is no need to review tabs
+        try:
+            current_tab_url = self.current_url
+        except:
+            # can fail if tab was manually closed
+            self.switch_to.window(window_handles[0])
+            current_tab_url = self.current_url
+
         if link_dict[go_to_this_tab] in self.current_url: return True
         
         
@@ -459,8 +470,60 @@ class Driver(webdriver.Chrome):
 
         sleep(sleep_s)
 
-        ################################################################################################################################################
+    ################################################################################################################################################
 
+    def human_scroll_till_element_no_longer_visible(self,element,confirmations = 3):
+
+        is_not_visible_confirmations = 0
+
+        while True:
+
+            scroll_y = random.randint(1, 12)
+
+            wait = random.randint(1, 5)/100
+
+            self.execute_script(f"window.scrollBy(0,{scroll_y});")
+
+            sleep(wait)
+
+            is_visible = self.execute_script("var elem = arguments[0], "
+                                    "box = elem.getBoundingClientRect(), "
+                                    "cx = box.left + box.width / 2, "
+                                    "cy = box.top + box.height / 2, "
+                                    "e = document.elementFromPoint(cx, cy); "
+                                    "for (; e; e = e.parentElement) { "
+                                    "   if (e === elem) return true; "
+                                    "} "
+                                    "return false;", element)
+            
+            if not is_visible: 
+                is_not_visible_confirmations += 1
+
+            if is_not_visible_confirmations >= confirmations: break
+
+        return True
+    
+    ################################################################################################################################################
+
+    def human_scroll_by(depth):
+
+        total_scroll = 0
+
+        while depth > total_scroll:
+
+            scroll_y = random.randint(1, 12)
+
+            wait = random.randint(1, 5)/100
+
+            self.execute_script(f"window.scrollBy(0,{scroll_y});")
+
+            sleep(wait)
+
+            total_scroll = total_scroll + scroll_y
+
+        return True
+
+    ################################################################################################################################################
 
     def send_keys_delete_clear_textbox(self,element,text_detection):
 
