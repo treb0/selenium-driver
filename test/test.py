@@ -1,4 +1,13 @@
+
+## driver
+import importlib
+import os,sys
+currentDir = os.getcwd()
+print(currentDir)
+os.chdir('..') # .. to go back one dir | you can do "../aFolderYouWant"
+sys.path.insert(0, os.getcwd())
 from chromedriver import *
+os.chdir(currentDir) # to go back to your home directory
 
 
 from time import sleep
@@ -10,6 +19,11 @@ import pandas as pd
 from bs4 import BeautifulSoup
 
 import random
+
+import importlib
+import os,sys
+currentDir = os.getcwd()
+
 
 # Selenium
 from selenium import webdriver
@@ -25,13 +39,18 @@ from selenium.common.exceptions import StaleElementReferenceException
 
 from webdriver_manager.chrome import ChromeDriverManager
 
-driver = open_chromedriver(rel_path_to_selenium = ''
-                                ,rel_path_to_chrome = 'chrome_test'
-                                ,profile = None
-                                ,extensions = ['veepn']
-                                ,audio = False
-                                ,headless = True
-                            )
+print('begin')
+
+driver = open_chromedriver(rel_path_to_selenium = '..'
+                     ,rel_path_to_chrome = ''
+                     ,profile = None
+                     ,extensions = ['veepn']
+                     ,audio = False
+                     ,headless = True
+                     )
+
+
+################################################################################################
 
 VPN_COUNTRY = 'Canada'
 VPN_REGION = 'Ontario'
