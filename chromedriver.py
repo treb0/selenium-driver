@@ -96,6 +96,7 @@ def open_chromedriver(rel_path_to_selenium
 
     # set extensions properties
     driver.extensions = extensions
+    driver.options = options
 
 
     return driver
