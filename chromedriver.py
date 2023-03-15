@@ -2,6 +2,7 @@ from time import sleep
 
 import sys
 import pandas as pd
+import json
 
 from bs4 import BeautifulSoup
 
@@ -25,6 +26,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from os import listdir
 from os.path import isfile, join
+import zipfile
 
 
 def open_chromedriver(rel_path_to_selenium
@@ -33,6 +35,7 @@ def open_chromedriver(rel_path_to_selenium
                      ,extensions = []
                      ,audio = False
                      ,headless = False
+                     ,iproyal_json_path = None
                      ):
 
     options = webdriver.ChromeOptions()
@@ -47,7 +50,7 @@ def open_chromedriver(rel_path_to_selenium
     # Options to avoid bot detection
     options.add_argument('--disable-blink-features=AutomationControlled') # el undetectable chromedriver recomienda sacarlo
     options.add_argument("--window-size=1282,814")
-    options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
+    options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36")
     
     # Headless
     if headless: 
@@ -60,11 +63,75 @@ def open_chromedriver(rel_path_to_selenium
         options.add_argument(f'user-data-dir={rel_path_to_chrome}')
         options.add_argument(f'--profile-directory=Profile {profile}')
 
-    # Extensions
+    # VPN
     if 'veepn' in extensions:
         # add vpn extension
         options.add_extension(f'{rel_path_to_selenium}/extension_vpn.crx')
 
+    elif iproyal_json_path is not None:
+
+        # get data from our json
+        with open(iproyal_json_path, 'r') as f:
+            vpn_json = json.load(f)
+        PROXY_HOST = vpn_json['host'] # rotating proxy or host
+        PROXY_PORT = vpn_json['port'] # port
+        PROXY_USER = vpn_json['user'] # username
+        PROXY_PASS = vpn_json['pass'] # password
+
+        manifest_json = """
+        {
+            "version": "1.0.0",
+            "manifest_version": 2,
+            "name": "Chrome Proxy",
+            "permissions": [
+                "proxy",
+                "tabs",
+                "unlimitedStorage",
+                "storage",
+                "<all_urls>",
+                "webRequest",
+                "webRequestBlocking"
+            ],
+            "background": {
+                "scripts": ["background.js"]
+            },
+            "minimum_chrome_version":"22.0.0"
+        }
+        """
+
+        background_js = """
+        var config = {
+                mode: "fixed_servers",
+                rules: {
+                singleProxy: {
+                    scheme: "http",
+                    host: "%s",
+                    port: parseInt(%s)
+                },
+                bypassList: ["localhost"]
+                }
+            };
+        chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+        function callbackFn(details) {
+            return {
+                authCredentials: {
+                    username: "%s",
+                    password: "%s"
+                }
+            };
+        }
+        chrome.webRequest.onAuthRequired.addListener(
+                    callbackFn,
+                    {urls: ["<all_urls>"]},
+                    ['blocking']
+        );
+        """ % (PROXY_HOST, PROXY_PORT, PROXY_USER, PROXY_PASS)
+
+        pluginfile = 'proxy_auth_plugin.zip'
+        with zipfile.ZipFile(pluginfile, 'w') as zp:
+            zp.writestr("manifest.json", manifest_json)
+            zp.writestr("background.js", background_js)
+        options.add_extension(pluginfile)
     
     #s = Service(ChromeDriverManager().install())
 
@@ -94,9 +161,11 @@ def open_chromedriver(rel_path_to_selenium
     # go to first tab
     driver.switch_to.window(driver.window_handles[0])
 
-    # set extensions properties
+    # save driver properties
     driver.extensions = extensions
     driver.options = options
+    driver.rel_path_to_selenium = rel_path_to_selenium
+    driver.rel_path_to_chrome = rel_path_to_chrome
 
 
     return driver
@@ -177,6 +246,7 @@ class Driver(webdriver.Chrome):
             'fb':'https://www.facebook.com',
             'ip':'https://whatismyipaddress.com',
             'veepn':'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/html/foreground.html',
+            'veepn_premium':'https://veepn.com/pricing',
             'landing':'https://www.hellolanding.com',
             'clutch':'https://www.clutch.ca',
             'rent_seeker':'https://www.rentseeker.ca/'
@@ -330,6 +400,24 @@ class Driver(webdriver.Chrome):
 
         sleep(10)
 
+        # review if "upgrade to pro" screen
+        get_access_buttons = self.find_elements(By.XPATH, '//button[@type="button"][@class="greenButton get-access-button"]')
+        if len(get_access_buttons) == 1:
+            get_access_buttons[0].click()
+            sleep(3)
+            self.switch_to_tab('veepn_premium')
+            self.close_current_tab()
+            self.switch_to_tab('veepn')
+            sleep(4)
+
+        # review if "new" screen
+        next_buttons = self.find_elements(By.XPATH, '//button[@type="button"][@class="next"][text()="Continue"]')
+        if len(next_buttons) == 1:
+            next_buttons[0].click()
+            sleep(2)
+            self.find_element(By.XPATH, '//button[@type="button"][@class="next"][text()="Start"]').click()
+            sleep(2)
+
         # Check if we are logged into veepn
         # open menu sidebar
         self.find_element(By.XPATH, '//button[@id="hamburger"]').click()
@@ -338,14 +426,25 @@ class Driver(webdriver.Chrome):
         log_ins = len(soup.find_all('button',text='Log In'))
         my_accounts = len(soup.find_all('div',text='My account'))
         if (log_ins == 1) & (my_accounts == 0):
-            print('WARNING: Not logged in to veepn')
-            logged_in = False
+            print('Not logged in. Proceeding to log in')
+            self.find_element(By.XPATH, '//button[@type="button"][@class="loginButton greenButton"]').click()
+            sleep(2)
+            # load account data from json
+            veepn_path = self.rel_path_to_selenium + 'veepn_access.json'
+            with open(veepn_path, 'r') as f:
+                veepn_access = json.load(f)
+            self.send_action_keys(veepn_access['user'])
+            sleep(2)
+            self.send_action_keys(Keys.TAB)
+            sleep(1)
+            self.send_action_keys(veepn_access['password'])
+            sleep(1)
+            self.find_element(By.XPATH, '//button[@id="submit-form-button"]').click()
+            print('Entered account & password: Logged in')
         elif (my_accounts == 1) & (log_ins == 0):
             print('Logged into veepn')
-            logged_in = True
         else:
             print(f'Unexpected occurrances of log_ins ({log_ins}) and/or my_accounts ({my_accounts})')
-            logged_in = 'Unexpected'
         # close menu sidebar
         self.find_element(By.XPATH, '//div[@role="button"][@class="bg"]').click()
         sleep(2)
@@ -387,7 +486,7 @@ class Driver(webdriver.Chrome):
             soup = self.get_soup()
             status = soup.find('div',{'id':'mainBtn'})['class'][0]
 
-            if status == 'connected': return logged_in
+            if status == 'connected': return True
 
             elif status == 'disconnected': 
                 # click super button
