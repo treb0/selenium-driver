@@ -36,7 +36,10 @@ def open_chromedriver(rel_path_to_selenium
                      ,audio = False
                      ,headless = False
                      ,iproyal_json_path = None
+                     ,time_zone = 'America/New_York'
                      ):
+
+    # list of available time zones: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
     options = webdriver.ChromeOptions()
     
@@ -54,7 +57,8 @@ def open_chromedriver(rel_path_to_selenium
     
     # Headless
     if headless: 
-        options.add_argument("--headless")
+        #options.add_argument("--headless") # usando este no me funcionaban los extensions
+        options.add_argument("--headless=new") # con este sí me funcionan las extensions (veepn)
         options.add_argument('--disable-gpu')
 
     # Profile
@@ -66,7 +70,11 @@ def open_chromedriver(rel_path_to_selenium
     # VPN
     if 'veepn' in extensions:
         # add vpn extension
-        options.add_extension(f'{rel_path_to_selenium}/extension_vpn.crx')
+        if rel_path_to_selenium != '': veepn_path = f'{rel_path_to_selenium}/extension_vpn.crx'
+        else: veepn_path = 'extension_vpn.crx'
+        options.add_extension(veepn_path)
+
+    
 
     elif iproyal_json_path is not None:
 
@@ -140,7 +148,12 @@ def open_chromedriver(rel_path_to_selenium
     #executable_path = rel_path_to_selenium + "chromedriver"
     executable_path = "chromedriver"
     driver = Driver(executable_path = executable_path, options = options)
-    
+
+    # set timezone
+    tz_params = {'timezoneId': time_zone}
+    driver.execute_cdp_cmd('Emulation.setTimezoneOverride', tz_params)
+    driver.timezone = time_zone
+
     sleep(10)
 
     if 'veepn' in extensions:
@@ -166,6 +179,7 @@ def open_chromedriver(rel_path_to_selenium
     driver.options = options
     driver.rel_path_to_selenium = rel_path_to_selenium
     driver.rel_path_to_chrome = rel_path_to_chrome
+    driver.headless = headless
 
 
     return driver
@@ -186,17 +200,7 @@ class Driver(webdriver.Chrome):
             actions.send_keys(key_final).perform()
             sleep(pause_s)
 
-        ################################################################################################################################################
-
-    def scroll_to_element(self, element):
-        
-        actions = ActionChains(self)
-        
-        actions.move_to_element(element).perform()
-
-        sleep(2)
-
-        ################################################################################################################################################
+    ################################################################################################################################################
 
         
     def open_new_tab(self,url=''):
@@ -245,6 +249,7 @@ class Driver(webdriver.Chrome):
         link_dict = {
             'fb':'https://www.facebook.com',
             'ip':'https://whatismyipaddress.com',
+            'browser':'https://www.whatismybrowser.com/',
             'veepn':'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/html/foreground.html',
             'veepn_premium':'https://veepn.com/pricing',
             'landing':'https://www.hellolanding.com',
@@ -260,7 +265,14 @@ class Driver(webdriver.Chrome):
             self.switch_to.window(window_handles[0])
             current_tab_url = self.current_url
 
-        if link_dict[go_to_this_tab] in self.current_url: return True
+        # already in the correct web page?
+        if link_dict[go_to_this_tab] in self.current_url: 
+            
+            if refresh:
+                self.refresh()
+                sleep(1)
+
+            return True
         
         
         for i,handle in enumerate(window_handles):
@@ -289,6 +301,13 @@ class Driver(webdriver.Chrome):
             self.open_new_tab(url)
 
             sleep(2)
+
+            # review if opened fb logged in. exit if not logged in
+            if go_to_this_tab == 'fb':
+                sleep(3)
+                create_new_account_buttons = self.find_elements(By.XPATH,'//a[@role="button"][@data-testid="open-registration-form-button"][text()="Create new account"]')
+                if len(create_new_account_buttons) > 0: sys.exit('Not logged in to fb account. Exit program.')
+
             return f'new tab opened: {go_to_this_tab}'
         
         else:
@@ -371,7 +390,6 @@ class Driver(webdriver.Chrome):
                   
     ################################################################################################################################################
 
-
     def get_soup(self,time_seconds=5):
     
         soup = ''
@@ -391,6 +409,14 @@ class Driver(webdriver.Chrome):
 
     ################################################################################################################################################
 
+    def veepn_close_rate_us_prompt(self):
+        rate_us_prompts = self.find_elements(By.XPATH,'//div[@class="text"][text()="Click the stars to rate us"]')
+        if len(rate_us_prompts) == 1:
+            if rate_us_prompts[0].is_displayed():
+                self.find_element(By.XPATH,'//button[@type="button"][@class="close"]').click()
+                sleep(2)
+
+    ################################################################################################################################################
 
     def set_veepn(self,country,region):
 
@@ -417,6 +443,9 @@ class Driver(webdriver.Chrome):
             sleep(2)
             self.find_element(By.XPATH, '//button[@type="button"][@class="next"][text()="Start"]').click()
             sleep(2)
+
+        # review if "rate us" pop up
+        self.veepn_close_rate_us_prompt()
 
         # Check if we are logged into veepn
         # open menu sidebar
@@ -478,6 +507,8 @@ class Driver(webdriver.Chrome):
 
                 sleep(5)
 
+        # review if "rate us" pop up
+        self.veepn_close_rate_us_prompt()
         
         # turn on vpn
         while True:
@@ -498,7 +529,6 @@ class Driver(webdriver.Chrome):
 
     ################################################################################################################################################
     
-            
     def verify_ip(self,country,region,veepn_country = '',veepn_region = ''):
         
         if country == '':
@@ -531,12 +561,19 @@ class Driver(webdriver.Chrome):
             current_country = soup.find('span',text='Country:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
             current_region = soup.find('span',text='Region:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
             current_city = soup.find('span',text='City:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+            isp = soup.find('span',text='ISP:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+            services = ''
+            if len(soup.find_all('span',text='Services:')) == 1:
+                services = soup.find('span',text='Services:').find_parent("p", {"class": "information"}).find_all('span')[1].get_text()
+
 
             print('')
             print(f'IP: {current_ip}')
             print(f'country: {current_country}')
             print(f'region: {current_region}')
             print(f'city: {current_city}')
+            print(f'Internet Service Provider: {isp}')
+            if services != '': print(f'Services: {services}')
 
             # IP validation
             if (current_country == country) & (region == current_region):
@@ -549,11 +586,12 @@ class Driver(webdriver.Chrome):
             else:
                 if 'veepn' in self.extensions: self.set_veepn(veepn_country,veepn_region)
                 else: 
-                    val = input(f"Set VPN to country: {country}, and region: {region}. Or enter 'exit' to exit")
-                    if val == 'exit': sys.exit('user exit')
+                    if self.headless: sys.exit('VPN not working')
+                    else:
+                        val = input(f"Set VPN to country: {country}, and region: {region}. Or enter 'exit' to exit")
+                        if val == 'exit': sys.exit('user exit')
 
     ################################################################################################################################################
-
 
     def scroll(self,depth=9999999):
 
@@ -624,6 +662,37 @@ class Driver(webdriver.Chrome):
             total_scroll = total_scroll + scroll_y
 
         return True
+    
+    ################################################################################################################################################
+
+    def scroll_to_element(self, element):
+        
+        actions = ActionChains(self)
+        
+        actions.move_to_element(element).perform()
+
+        sleep(2)
+
+    ################################################################################################################################################
+    
+    # def human_scroll_to_element(self,depth): hay que programarlo, pero está dificil dado el infinite scroll donde no sabemos nuestra posicion... no sabemos si el element esta hacia arriba o abajo jaja
+
+    #     total_scroll = 0
+
+    #     while depth > total_scroll:
+
+    #         #scroll_y = random.randint(1, 12)
+    #         scroll_y = 10
+
+    #         wait = random.randint(1, 5)/50
+
+    #         self.execute_script(f"window.scrollBy(0,{scroll_y});")
+
+    #         sleep(wait)
+
+    #         total_scroll = total_scroll + scroll_y
+
+    #     return True
 
     ################################################################################################################################################
 
@@ -645,9 +714,9 @@ class Driver(webdriver.Chrome):
             else:
 
                 # evitar que se quede dandole backspace, cuando el cursor está por delante de todo el texto, por lo que no borra nada
-                element.send_keys(Keys.ARROW_RIGHT)
+                self.send_action_keys(Keys.ARROW_RIGHT)
 
-                element.send_keys(Keys.BACKSPACE)
+                self.send_action_keys(Keys.BACKSPACE)
 
                 sleep(0.6)
 
@@ -726,6 +795,45 @@ class Driver(webdriver.Chrome):
 
     ################################################################################################################################################
 
+    def get_browser_details(self):
+
+        print(f'''driver.capabilities.platformName: {self.capabilities['platformName']}''')
+
+        self.switch_to_tab("browser")
+        sleep(2)
+
+        soup = self.get_soup()
+
+        chrome_and_os = soup.find('div',{'aria-label':"We detect that your web browser is"}).find('a').get_text()
+        print(f'chrome_and_os: {chrome_and_os}')
+
+        # conflict between actual chrome and chromedriver user agent
+        if len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) == 1:
+            print('conflict: ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('h1').get_text() + ' ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('div',class_="string-major").get_text().replace('\n','').replace('\r','').replace('\t','').rstrip(' ').lstrip(' '))
+        elif len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) > 1:
+            sys.exit('Detected multiple conflicts')
+
+        computer_screen = soup.find('li',id="computer-screen").find('span').get_text()
+        print(f'computer_screen: {computer_screen}')
+
+        browser_window_size = soup.find('li',id="browser-window-size").find('span').get_text()
+        print(f'browser_window_size: {browser_window_size}')
+
+        hardware_type = soup.find('ul',id="technical-details").find('div',class_='key',text='Hardware Type').parent.find('div',class_="value").get_text()
+        print(f'hardware_type: {hardware_type}') 
+
+        timezone = soup.find('ul',id="technical-details").find('div',class_='key',text='Browser GMT Offset').parent.find('div',class_="value").get_text()
+        print(f'timezone: {timezone}')
+
+        cpu_cores = soup.find('ul',id="technical-details").find('div',class_='key',text='No. of logical CPU cores').parent.find('div',class_="value").get_text()
+        print(f'CPU cores: {cpu_cores}')
+
+        configured_laguages = soup.find('ul',id="technical-details").find('div',class_='key',text='Configured Languages').parent.find('div',class_="value").get_text()
+        print(f'configured_laguages: {configured_laguages}')
+
+        self.close_current_tab()
+
+    ################################################################################################################################################
 
 
 
