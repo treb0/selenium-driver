@@ -37,6 +37,7 @@ def open_chromedriver(rel_path_to_selenium
                      ,headless = False
                      ,iproyal_json_path = None
                      ,time_zone = 'America/New_York'
+                     ,change_user_agent = True
                      ):
 
     # list of available time zones: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
@@ -53,7 +54,7 @@ def open_chromedriver(rel_path_to_selenium
     # Options to avoid bot detection
     options.add_argument('--disable-blink-features=AutomationControlled') # el undetectable chromedriver recomienda sacarlo
     options.add_argument("--window-size=1282,814")
-    options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36")
+    if change_user_agent: options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36")
     
     # Headless
     if headless: 
