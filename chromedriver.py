@@ -151,7 +151,9 @@ def open_chromedriver(rel_path_to_selenium
 
     # set timezone
     tz_params = {'timezoneId': time_zone}
-    driver.execute_cdp_cmd('Emulation.setTimezoneOverride', tz_params)
+    for i in range(1, 20):
+        driver.execute_cdp_cmd('Emulation.setTimezoneOverride', tz_params)
+        # al hacerlo varias veces sí cambia... podríamos codear una manera de asegurarnos de que cambie correctamente...
     driver.timezone = time_zone
 
     sleep(10)
