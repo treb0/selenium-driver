@@ -44,7 +44,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 # open chromedriver
 rel_path_to_selenium = ''
 rel_path_to_chrome = ''
-driver = open_chromedriver(rel_path_to_selenium, rel_path_to_chrome, extensions=['veepn'], headless=True)
+driver = open_chromedriver(rel_path_to_selenium, rel_path_to_chrome, extensions=['veepn']
+                          ,headless=True
+                          ,time_zone = 'America/Toronto'
+                           )
 
 ########################################################################################################################
 

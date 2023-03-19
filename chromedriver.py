@@ -28,6 +28,8 @@ from os import listdir
 from os.path import isfile, join
 import zipfile
 
+import traceback
+
 
 def open_chromedriver(rel_path_to_selenium
                      ,rel_path_to_chrome
@@ -38,6 +40,7 @@ def open_chromedriver(rel_path_to_selenium
                      ,iproyal_json_path = None
                      ,time_zone = 'America/New_York'
                      ,change_user_agent = True
+                     ,map_coordinates = {}
                      ):
 
     # list of available time zones: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
@@ -141,6 +144,11 @@ def open_chromedriver(rel_path_to_selenium
             zp.writestr("manifest.json", manifest_json)
             zp.writestr("background.js", background_js)
         options.add_extension(pluginfile)
+
+    # # Operating System >>> esto no funca porque hace que falle con "No matching capabilities found"
+    # desired_caps = webdriver.DesiredCapabilities.CHROME.copy()
+    # desired_caps['platform'] = "WINDOWS"
+    # desired_caps['version'] = "10"
     
     #s = Service(ChromeDriverManager().install())
 
@@ -148,14 +156,29 @@ def open_chromedriver(rel_path_to_selenium
 
     #executable_path = rel_path_to_selenium + "chromedriver"
     executable_path = "chromedriver"
-    driver = Driver(executable_path = executable_path, options = options)
+    driver = Driver(executable_path = executable_path
+                   ,options = options
+                   #,desired_capabilities=desired_caps
+                   )
 
     # set timezone
     tz_params = {'timezoneId': time_zone}
-    for i in range(1, 20):
-        driver.execute_cdp_cmd('Emulation.setTimezoneOverride', tz_params)
+    driver.execute_cdp_cmd('Emulation.setTimezoneOverride', tz_params)
         # al hacerlo varias veces sí cambia... podríamos codear una manera de asegurarnos de que cambie correctamente...
     driver.timezone = time_zone
+    driver.tz_params = tz_params
+
+    # set geo location >> not important since our chrome does not give its geo location...
+    # map_coordinates = dict({
+    #     "latitude": 43.8427, # toronto location
+    #     "longitude": -79.4492,
+    #     "accuracy": 100
+    #     })
+    # driver.execute_cdp_cmd("Emulation.setGeolocationOverride", map_coordinates)
+    # driver.map_coordinates = map_coordinates
+
+    # undetectable
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => false})"})
 
     sleep(10)
 
@@ -217,6 +240,14 @@ class Driver(webdriver.Chrome):
         self.switch_to.window(self.window_handles[len(self.window_handles)-1])
 
         sleep(0.5)
+
+        # set parameters
+        try: self.execute_cdp_cmd('Emulation.setTimezoneOverride', self.tz_params)
+        except: pass
+        try: driver.execute_cdp_cmd("Emulation.setGeolocationOverride", self.map_coordinates)
+        except: pass
+        # undetectable parameters
+        self.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => false})"})
 
         # open link
         self.open_link(url,mode = 'in')
@@ -798,43 +829,61 @@ class Driver(webdriver.Chrome):
 
     ################################################################################################################################################
 
-    def get_browser_details(self):
+    def get_browser_details(self
+                           ,max_tries = 5
+                           ):
 
         print(f'''driver.capabilities.platformName: {self.capabilities['platformName']}''')
 
-        self.switch_to_tab("browser")
-        sleep(2)
+        get_tries = 0
+        
+        # try loop
+        while True:
 
-        soup = self.get_soup()
+            try:
 
-        chrome_and_os = soup.find('div',{'aria-label':"We detect that your web browser is"}).find('a').get_text()
-        print(f'chrome_and_os: {chrome_and_os}')
+                self.switch_to_tab("browser",refresh=True)
+                sleep(2)
 
-        # conflict between actual chrome and chromedriver user agent
-        if len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) == 1:
-            print('conflict: ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('h1').get_text() + ' ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('div',class_="string-major").get_text().replace('\n','').replace('\r','').replace('\t','').rstrip(' ').lstrip(' '))
-        elif len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) > 1:
-            sys.exit('Detected multiple conflicts')
+                soup = self.get_soup()
 
-        computer_screen = soup.find('li',id="computer-screen").find('span').get_text()
-        print(f'computer_screen: {computer_screen}')
+                chrome_and_os = soup.find('div',{'aria-label':"We detect that your web browser is"}).find('a').get_text()
 
-        browser_window_size = soup.find('li',id="browser-window-size").find('span').get_text()
-        print(f'browser_window_size: {browser_window_size}')
+                computer_screen = soup.find('li',id="computer-screen").find('span').get_text()
+                browser_window_size = soup.find('li',id="browser-window-size").find('span').get_text()
+                hardware_type = soup.find('ul',id="technical-details").find('div',class_='key',text='Hardware Type').parent.find('div',class_="value").get_text()
+                timezone = soup.find('ul',id="technical-details").find('div',class_='key',text='Browser GMT Offset').parent.find('div',class_="value").get_text()
+                cpu_cores = soup.find('ul',id="technical-details").find('div',class_='key',text='No. of logical CPU cores').parent.find('div',class_="value").get_text()
+                configured_laguages = soup.find('ul',id="technical-details").find('div',class_='key',text='Configured Languages').parent.find('div',class_="value").get_text()
+                user_agent = soup.find('a',class_="user_agent",title="Your User Agent").get_text()
 
-        hardware_type = soup.find('ul',id="technical-details").find('div',class_='key',text='Hardware Type').parent.find('div',class_="value").get_text()
-        print(f'hardware_type: {hardware_type}') 
+                print(f'chrome_and_os: {chrome_and_os}')
+                # conflict between actual chrome and chromedriver user agent
+                if len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) == 1:
+                    print('conflict: ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('h1').get_text() + ' ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('div',class_="string-major").get_text().replace('\n','').replace('\r','').replace('\t','').rstrip(' ').lstrip(' '))
+                elif len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) > 1:
+                    sys.exit('Detected multiple conflicts')
+                print(f'computer_screen: {computer_screen}')
+                print(f'browser_window_size: {browser_window_size}')
+                print(f'hardware_type: {hardware_type}') 
+                print(f'timezone: {timezone}')
+                print(f'CPU cores: {cpu_cores}')
+                print(f'configured_laguages: {configured_laguages}')
+                print(f'user_agent: {user_agent}')
 
-        timezone = soup.find('ul',id="technical-details").find('div',class_='key',text='Browser GMT Offset').parent.find('div',class_="value").get_text()
-        print(f'timezone: {timezone}')
+                self.close_current_tab()
 
-        cpu_cores = soup.find('ul',id="technical-details").find('div',class_='key',text='No. of logical CPU cores').parent.find('div',class_="value").get_text()
-        print(f'CPU cores: {cpu_cores}')
+                break
 
-        configured_laguages = soup.find('ul',id="technical-details").find('div',class_='key',text='Configured Languages').parent.find('div',class_="value").get_text()
-        print(f'configured_laguages: {configured_laguages}')
+            except:
+            
+                if get_tries >= max_tries:
+                    print(f'Failed {max_tries} times to get browser details.')
+                    print('traceback:')
+                    traceback.print_exc()
+                    sys.exit()
 
-        self.close_current_tab()
+                else: get_tries += 1
 
     ################################################################################################################################################
 
