@@ -46,6 +46,7 @@ rel_path_to_selenium = ''
 rel_path_to_chrome = ''
 driver = open_chromedriver(rel_path_to_selenium, rel_path_to_chrome, extensions=['veepn']
                           ,headless=True
+                          ,change_user_agent = False
                           ,time_zone = 'America/Toronto'
                            )
 
