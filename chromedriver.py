@@ -456,6 +456,8 @@ class Driver(webdriver.Chrome):
 
         if 'veepn' not in self.extensions: return 'VeePN not in driver extensions'
 
+        print('setting veepn')
+
         self.switch_to_tab('veepn')
 
         sleep(10)
