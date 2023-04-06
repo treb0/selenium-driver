@@ -266,7 +266,11 @@ class Driver(webdriver.Chrome):
 
         ################################################################################################################################################
 
-    def switch_to_tab(self,go_to_this_tab,refresh=False):
+    def switch_to_tab(self
+                      ,go_to_this_tab
+                      ,refresh=False
+                      ,log_into_fb=False
+                      ):
     
         go_to_this_tab = str(go_to_this_tab.lower())
         
@@ -340,7 +344,10 @@ class Driver(webdriver.Chrome):
             if go_to_this_tab == 'fb':
                 sleep(3)
                 create_new_account_buttons = self.find_elements(By.XPATH,'//a[@role="button"][@data-testid="open-registration-form-button"][text()="Create new account"]')
-                if len(create_new_account_buttons) > 0: sys.exit('Not logged in to fb account. Exit program.')
+                if len(create_new_account_buttons) > 0: 
+                    if not log_into_fb: sys.exit('Not logged in to fb account. Exit program.')
+                    #else:
+                        
 
             return f'new tab opened: {go_to_this_tab}'
         
