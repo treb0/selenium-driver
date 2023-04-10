@@ -57,7 +57,7 @@ def open_chromedriver(rel_path_to_selenium
     # Options to avoid bot detection
     options.add_argument('--disable-blink-features=AutomationControlled') # el undetectable chromedriver recomienda sacarlo
     options.add_argument("--window-size=1282,814")
-    if change_user_agent: options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36")
+    if change_user_agent: options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36")
     
     # Headless
     if headless: 
@@ -497,26 +497,17 @@ class Driver(webdriver.Chrome):
         soup = self.get_soup()
         log_ins = len(soup.find_all('button',text='Log In'))
         my_accounts = len(soup.find_all('div',text='My account'))
+
         if (log_ins == 1) & (my_accounts == 0):
             print('Not logged in. Proceeding to log in')
-            self.find_element(By.XPATH, '//button[@type="button"][@class="loginButton greenButton"]').click()
-            sleep(2)
-            # load account data from json
-            veepn_path = self.rel_path_to_selenium + 'veepn_access.json'
-            with open(veepn_path, 'r') as f:
-                veepn_access = json.load(f)
-            self.send_action_keys(veepn_access['user'])
-            sleep(2)
-            self.send_action_keys(Keys.TAB)
-            sleep(1)
-            self.send_action_keys(veepn_access['password'])
-            sleep(1)
-            self.find_element(By.XPATH, '//button[@id="submit-form-button"]').click()
-            print('Entered account & password: Logged in')
+            self.veepn_login()
+
         elif (my_accounts == 1) & (log_ins == 0):
             print('Logged into veepn')
+
         else:
             print(f'Unexpected occurrances of log_ins ({log_ins}) and/or my_accounts ({my_accounts})')
+
         # close menu sidebar
         self.find_element(By.XPATH, '//div[@role="button"][@class="bg"]').click()
         sleep(2)
@@ -535,6 +526,10 @@ class Driver(webdriver.Chrome):
                 self.find_element(By.XPATH, "//div[@class='region-wrapper']").click()
 
                 sleep(2)
+
+                # check if there are red locks (we are not in premium)
+                if len(self.find_elements(By.XPATH,'//div[@class="radio disabled"][@role="button"]')) > 0:
+                    self.renew_veepn_month()
 
                 ### click country
                 try:
@@ -569,6 +564,74 @@ class Driver(webdriver.Chrome):
             else:
                 # se pone con status preConnected mientras esta connectado
                 sleep(5)
+
+    ################################################################################################################################################
+
+    def veepn_login(self):
+
+        self.find_element(By.XPATH, '//button[@type="button"][@class="loginButton greenButton"]').click()
+        sleep(2)
+        # load account data from json
+        veepn_path = self.rel_path_to_selenium + 'veepn_access.json'
+        with open(veepn_path, 'r') as f:
+            veepn_access = json.load(f)
+
+        # input user
+        if self.find_element(By.XPATH,'//input[@name="email"]').get_attribute('value') != veepn_access['user']:
+            for i in range(self.find_element(By.XPATH,'//input[@name="email"]').get_attribute('value')):
+                self.send_action_keys(Keys.BACK_SPACE)
+            self.send_action_keys(veepn_access['user'])
+
+        # input password
+        self.send_action_keys(Keys.TAB)
+        sleep(1)
+
+        if self.find_element(By.XPATH,'//input[@name="password"]').get_attribute('value') != veepn_access['password']:
+            for i in range(self.find_element(By.XPATH,'//input[@name="password"]').get_attribute('value')):
+                self.send_action_keys(Keys.BACK_SPACE)
+            self.send_action_keys(veepn_access['password'])
+
+        sleep(1)
+
+        # login
+        self.find_element(By.XPATH, '//button[@id="submit-form-button"]').click()
+        print('Entered account & password: Logged in')
+
+        sleep(5)
+
+    ################################################################################################################################################
+
+    def renew_veepn_month(self):
+
+        # we must be in the view of select region
+
+        # click back button (top left)
+        self.find_element(By.XPATH,'//div[@class="veepn-back-button-wrapper"][@role="button"]').click()
+        sleep(3)
+
+        # click menu button (top left)
+        self.find_element(By.XPATH,'//button[@id="hamburger"]').click()
+        sleep(3)
+
+        # click my account
+        self.find_element(By.XPATH,'//div[@class="menu_item menu_item"][text()="My account"]/..').click()
+        sleep(3)
+
+        # click Log Out
+        self.find_element(By.XPATH,'//div[@role="button"][@class="logout-button"]').click()
+        sleep(3)
+
+        # click menu button (top left)
+        self.find_element(By.XPATH,'//button[@id="hamburger"]').click()
+        sleep(3)
+
+        # click log-in
+        self.veepn_login()
+
+        # click regions button
+        self.find_element(By.XPATH, "//div[@class='region-wrapper']").click()
+
+        sleep(2)
 
     ################################################################################################################################################
     
