@@ -150,16 +150,20 @@ def open_chromedriver(rel_path_to_selenium
     # desired_caps['platform'] = "WINDOWS"
     # desired_caps['version'] = "10"
     
-    #s = Service(ChromeDriverManager().install())
-
-    #driver = Driver(service = s, options = options)
+    
 
     #executable_path = rel_path_to_selenium + "chromedriver"
-    executable_path = "chromedriver"
-    driver = Driver(executable_path = executable_path
-                   ,options = options
-                   #,desired_capabilities=desired_caps
-                   )
+
+    try:
+        executable_path = "chromedriver"
+        driver = Driver(executable_path = executable_path
+                        ,options = options
+                        #,desired_capabilities=desired_caps
+                        )
+    
+    except:
+        s = Service(ChromeDriverManager().install())
+        driver = Driver(service = s, options = options)
 
     # set timezone
     tz_params = {'timezoneId': time_zone}
