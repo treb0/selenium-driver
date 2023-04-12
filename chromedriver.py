@@ -345,8 +345,10 @@ class Driver(webdriver.Chrome):
                 sleep(3)
                 create_new_account_buttons = self.find_elements(By.XPATH,'//a[@role="button"][@data-testid="open-registration-form-button"][text()="Create new account"]')
                 if len(create_new_account_buttons) > 0: 
-                    if not log_into_fb: sys.exit('Not logged in to fb account. Exit program.')
-                    #else:
+                    if not log_into_fb: 
+                        sys.exit('Not logged in to fb account. Exit program.')
+                    else:
+                        print('detected we are not logged in to fb account.')
                         
 
             return f'new tab opened: {go_to_this_tab}'
@@ -376,7 +378,7 @@ class Driver(webdriver.Chrome):
         # mode = equal: function will iterate until it opens that exact same link
         # mode = in: opens that link and is ok with receving a link that contains extra text to the right
         
-        if mode not in ('equal','in'): sys.exit('Bad mode entered for open_link')
+        if mode not in ('equal','in'): raise Exception('Bad mode entered for open_link')
         
         open_link_try = 0
         
@@ -419,7 +421,7 @@ class Driver(webdriver.Chrome):
 
                 if open_link_try >= 3:
                     
-                    sys.exit(f'Error: open_link() has failed {open_link_try} times. System exit')
+                    raise Exception(f'Error: open_link() has failed {open_link_try} times. System exit')
 
                 else:
 
@@ -639,15 +641,15 @@ class Driver(webdriver.Chrome):
         
         if country == '':
             print('Country not specified. System exit')
-            sys.exit()
+            raise Exception()
         
         elif region == '':
             print('Region not specified. System exit')
-            sys.exit()
+            raise Exception()
 
         elif country not in ['United States','Canada']:
             print('Un-recognized country. Add before runnig this funciton. System exit')
-            sys.exit()
+            raise Exception()
             
 
         while True:  
@@ -692,10 +694,10 @@ class Driver(webdriver.Chrome):
             else:
                 if 'veepn' in self.extensions: self.set_veepn(veepn_country,veepn_region)
                 else: 
-                    if self.headless: sys.exit('VPN not working')
+                    if self.headless: raise Exception('VPN not working')
                     else:
                         val = input(f"Set VPN to country: {country}, and region: {region}. Or enter 'exit' to exit")
-                        if val == 'exit': sys.exit('user exit')
+                        if val == 'exit': raise Exception('user exit')
 
     ################################################################################################################################################
 
@@ -836,7 +838,7 @@ class Driver(webdriver.Chrome):
         if type(url) == str: urls_check = [url]
         elif type(url) == list: urls_check = url
         else:
-            sys.exit(f'unexpected type for url: {type(url)}')
+            raise Exception(f'unexpected type for url: {type(url)}')
 
         load_final_try = 0
             
@@ -848,7 +850,7 @@ class Driver(webdriver.Chrome):
                 load_final_try += 1
                 sleep(seconds_per_check)
 
-            if load_final_try > checks: sys.exit(f'waiting for delivery web-page but not found. urls_check: {urls_check}')
+            if load_final_try > checks: raise Exception(f'waiting for delivery web-page but not found. urls_check: {urls_check}')
 
     ################################################################################################################################################
 
@@ -881,7 +883,7 @@ class Driver(webdriver.Chrome):
 
                 return xpath
             
-        if exit_if_failure: sys.exit(f'no elements found. xpaths = {xpath_list}')
+        if exit_if_failure: raise Exception(f'no elements found. xpaths = {xpath_list}')
         else:
             return False
         
@@ -934,7 +936,7 @@ class Driver(webdriver.Chrome):
                 if len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) == 1:
                     print('conflict: ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('h1').get_text() + ' ' + soup.find('li',id="primary-browser-detection-backend-conflicts").find('div',class_="string-major").get_text().replace('\n','').replace('\r','').replace('\t','').rstrip(' ').lstrip(' '))
                 elif len(soup.find_all('li',id="primary-browser-detection-backend-conflicts")) > 1:
-                    sys.exit('Detected multiple conflicts')
+                    raise Exception('Detected multiple conflicts')
                 print(f'computer_screen: {computer_screen}')
                 print(f'browser_window_size: {browser_window_size}')
                 print(f'hardware_type: {hardware_type}') 
@@ -952,8 +954,9 @@ class Driver(webdriver.Chrome):
                 if get_tries >= max_tries:
                     print(f'Failed {max_tries} times to get browser details.')
                     print('traceback:')
-                    traceback.print_exc()
-                    sys.exit()
+                    traceback_str = traceback.format_exc()
+                    print(traceback_str)
+                    raise Exception(f'Failed {max_tries} times to get browser details. traceback: {traceback_str}')
 
                 else: get_tries += 1
 
