@@ -153,14 +153,13 @@ def open_chromedriver(rel_path_to_selenium
     
 
     #executable_path = rel_path_to_selenium + "chromedriver"
-
     try:
         executable_path = "chromedriver"
         driver = Driver(executable_path = executable_path
-                        ,options = options
-                        #,desired_capabilities=desired_caps
-                        )
-    
+                    ,options = options
+                    #,desired_capabilities=desired_caps
+                    )
+        
     except:
         s = Service(ChromeDriverManager().install())
         driver = Driver(service = s, options = options)
@@ -830,7 +829,7 @@ class Driver(webdriver.Chrome):
 
                 self.send_action_keys(Keys.BACKSPACE)
 
-                sleep(0.6)
+                sleep(0.3)
 
         ################################################################################################################################################
 
